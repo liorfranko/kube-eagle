@@ -2,12 +2,13 @@ package collector
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/google-cloud-tools/kube-eagle/kubernetes"
 	"github.com/google-cloud-tools/kube-eagle/options"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"sync"
-	"time"
 )
 
 type collectorFactoryFunc = func(opts *options.Options) (Collector, error)
@@ -75,7 +76,6 @@ func (k KubeEagleCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect implements the prometheus.Collector interface
 func (k KubeEagleCollector) Collect(ch chan<- prometheus.Metric) {
 	wg := sync.WaitGroup{}
-
 	// Run all collectors concurrently and add meta information about that (such as request duration and error/success count)
 	for name, collector := range k.CollectorByName {
 		wg.Add(1)

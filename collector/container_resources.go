@@ -1,13 +1,14 @@
 package collector
 
 import (
+	"strings"
+	"sync"
+
 	"github.com/google-cloud-tools/kube-eagle/options"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
-	"strings"
-	"sync"
 )
 
 type containerResourcesCollector struct {
@@ -122,7 +123,6 @@ func (c *containerResourcesCollector) updateMetrics(ch chan<- prometheus.Metric)
 	for _, containerMetrics := range containerMetricses {
 		var labelValues []string
 		cm := *containerMetrics
-		log.Debugf("Test")
 		labelValues = []string{cm.Pod, cm.Container, cm.Qos, cm.Phase, cm.Namespace, cm.Node}
 		// Determine whether the array contains labels
 		if itemExists(labels, "labels") {

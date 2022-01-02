@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/google-cloud-tools/kube-eagle/collector"
-	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	"os"
 	"strconv"
+
+	"github.com/google-cloud-tools/kube-eagle/collector"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/google-cloud-tools/kube-eagle/options"
 	"github.com/kelseyhightower/envconfig"

@@ -1,13 +1,14 @@
 package collector
 
 import (
+	"sync"
+
 	"github.com/google-cloud-tools/kube-eagle/kubernetes"
 	"github.com/google-cloud-tools/kube-eagle/options"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
-	"sync"
 )
 
 type nodeResourcesCollector struct {
@@ -37,7 +38,7 @@ func init() {
 
 func newNodeResourcesCollector(opts *options.Options) (Collector, error) {
 	subsystem := "node_resource"
-	labels := []string{"node"}
+	labels := []string{"node", "nodegroup"}
 
 	return &nodeResourcesCollector{
 		// Prometheus metrics
@@ -151,26 +152,29 @@ func (c *nodeResourcesCollector) updateMetrics(ch chan<- prometheus.Metric) erro
 	podMetricsByNodeName := getAggregatedPodMetricsByNodeName(podList)
 
 	for _, n := range nodeList.Items {
+		// Nodegroup-name
+		nodegroupName := n.ObjectMeta.Labels["nodegroup-name"]
+
 		// allocatable
 		allocatableCPU := n.Status.Allocatable.Cpu().Value()
 		allocatableMemoryBytes := float64(n.Status.Allocatable.Memory().MilliValue()) / 1000
-		ch <- prometheus.MustNewConstMetric(c.allocatableCPUCoresDesc, prometheus.GaugeValue, float64(allocatableCPU), n.Name)
-		ch <- prometheus.MustNewConstMetric(c.allocatableMemoryBytesDesc, prometheus.GaugeValue, float64(allocatableMemoryBytes), n.Name)
+		ch <- prometheus.MustNewConstMetric(c.allocatableCPUCoresDesc, prometheus.GaugeValue, float64(allocatableCPU), n.Name, nodegroupName)
+		ch <- prometheus.MustNewConstMetric(c.allocatableMemoryBytesDesc, prometheus.GaugeValue, float64(allocatableMemoryBytes), n.Name, nodegroupName)
 
 		// resource usage
 		usageMetrics := nodeMetricsByNodeName[n.Name]
 		usageCPU := float64(usageMetrics.Usage.Cpu().MilliValue()) / 1000
 		usageMemoryBytes := float64(usageMetrics.Usage.Memory().MilliValue()) / 1000
-		ch <- prometheus.MustNewConstMetric(c.usageCPUCoresDesc, prometheus.GaugeValue, float64(usageCPU), n.Name)
-		ch <- prometheus.MustNewConstMetric(c.usageMemoryBytesDesc, prometheus.GaugeValue, float64(usageMemoryBytes), n.Name)
+		ch <- prometheus.MustNewConstMetric(c.usageCPUCoresDesc, prometheus.GaugeValue, float64(usageCPU), n.Name, nodegroupName)
+		ch <- prometheus.MustNewConstMetric(c.usageMemoryBytesDesc, prometheus.GaugeValue, float64(usageMemoryBytes), n.Name, nodegroupName)
 
 		// aggregated pod metrics (e. g. resource requests by node)
 		podMetrics := podMetricsByNodeName[n.Name]
-		ch <- prometheus.MustNewConstMetric(c.requestCPUCoresDesc, prometheus.GaugeValue, podMetrics.requestedCPUCores, n.Name)
-		ch <- prometheus.MustNewConstMetric(c.requestMemoryBytesDesc, prometheus.GaugeValue, float64(podMetrics.requestedMemoryBytes), n.Name)
-		ch <- prometheus.MustNewConstMetric(c.limitCPUCoresDesc, prometheus.GaugeValue, podMetrics.limitCPUCores, n.Name)
-		ch <- prometheus.MustNewConstMetric(c.limitMemoryBytesDesc, prometheus.GaugeValue, float64(podMetrics.limitMemoryBytes), n.Name)
-		ch <- prometheus.MustNewConstMetric(c.usagePodCount, prometheus.GaugeValue, float64(podMetrics.podCount), n.Name)
+		ch <- prometheus.MustNewConstMetric(c.requestCPUCoresDesc, prometheus.GaugeValue, podMetrics.requestedCPUCores, n.Name, nodegroupName)
+		ch <- prometheus.MustNewConstMetric(c.requestMemoryBytesDesc, prometheus.GaugeValue, float64(podMetrics.requestedMemoryBytes), n.Name, nodegroupName)
+		ch <- prometheus.MustNewConstMetric(c.limitCPUCoresDesc, prometheus.GaugeValue, podMetrics.limitCPUCores, n.Name, nodegroupName)
+		ch <- prometheus.MustNewConstMetric(c.limitMemoryBytesDesc, prometheus.GaugeValue, float64(podMetrics.limitMemoryBytes), n.Name, nodegroupName)
+		ch <- prometheus.MustNewConstMetric(c.usagePodCount, prometheus.GaugeValue, float64(podMetrics.podCount), n.Name, nodegroupName)
 	}
 
 	return nil
