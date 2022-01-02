@@ -3,11 +3,11 @@ package options
 // Options are configuration options that can be set by Environment Variables
 type Options struct {
 	// General
-	Version string `envconfig:"VERSION" required:"false"`
+	Version string `envconfig:"VERSION" required:"true"`
 
 	// Kubernetes
 	// IsInCluster - Whether to use in cluster communication (if deployed inside of Kubernetes) or to look for a kubeconfig in home directory
-	IsInCluster bool `envconfig:"IS_IN_CLUSTER" default:"false"`
+	IsInCluster bool `envconfig:"IS_IN_CLUSTER" default:"true"`
 
 	// Prometheus
 	// Host - Host to bind socket on for the prometheus exporter
@@ -20,7 +20,7 @@ type Options struct {
 
 	// Logger
 	// LogLevel - Logger's log granularity (debug, info, warn, error, fatal, panic)
-	LogLevel string `envconfig:"LOG_LEVEL" default:"debug"`
+	LogLevel string `envconfig:"LOG_LEVEL" default:"info"`
 }
 
 // NewOptions provides Application Options

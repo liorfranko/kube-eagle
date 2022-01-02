@@ -36,9 +36,9 @@ func newContainerResourcesCollector(opts *options.Options) (Collector, error) {
 
 	// Determine whether to open labels
 	if opts.EnableLabels {
-		labels = []string{"pod", "labels", "container", "qos", "phase", "namespace", "node"}
+		labels = []string{"pod", "labels", "container", "qos", "phase", "namespace", "node", "nodegroup"}
 	} else {
-		labels = []string{"pod", "container", "qos", "phase", "namespace", "node"}
+		labels = []string{"pod", "container", "qos", "phase", "namespace", "node", "nodegroup"}
 	}
 
 	return &containerResourcesCollector{
@@ -93,6 +93,8 @@ func (c *containerResourcesCollector) updateMetrics(ch chan<- prometheus.Metric)
 	var podListError error
 	var podMetricses *v1beta1.PodMetricsList
 	var podMetricsesError error
+	var nodeList *corev1.NodeList
+	var nodeListError error
 
 	// Get pod list
 	wg.Add(1)
@@ -108,6 +110,13 @@ func (c *containerResourcesCollector) updateMetrics(ch chan<- prometheus.Metric)
 		podMetricses, podMetricsesError = kubernetesClient.PodMetricses()
 	}()
 
+	// Get node list
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		nodeList, nodeListError = kubernetesClient.NodeList()
+	}()
+
 	wg.Wait()
 	if podListError != nil {
 		log.Warn("Failed to get podList from Kubernetes", podListError)
@@ -117,16 +126,21 @@ func (c *containerResourcesCollector) updateMetrics(ch chan<- prometheus.Metric)
 		log.Warn("Failed to get podMetricses from Kubernetes", podMetricsesError)
 		return podMetricsesError
 	}
+	if nodeListError != nil {
+		log.Warn("Failed to get nodeList from Kubernetes", nodeListError)
+		return nodeListError
+	}
 
-	containerMetricses := buildEnrichedContainerMetricses(podList, podMetricses)
+	containerMetricses := buildEnrichedContainerMetricses(podList, podMetricses, nodeList)
 
 	for _, containerMetrics := range containerMetricses {
 		var labelValues []string
 		cm := *containerMetrics
-		labelValues = []string{cm.Pod, cm.Container, cm.Qos, cm.Phase, cm.Namespace, cm.Node}
+		// log.Debugf("Test")
+		labelValues = []string{cm.Pod, cm.Container, cm.Qos, cm.Phase, cm.Namespace, cm.Node, cm.Nodegroup}
 		// Determine whether the array contains labels
 		if itemExists(labels, "labels") {
-			labelValues = []string{cm.Pod, cm.Labels, cm.Container, cm.Qos, cm.Phase, cm.Namespace, cm.Node}
+			labelValues = []string{cm.Pod, cm.Labels, cm.Container, cm.Qos, cm.Phase, cm.Namespace, cm.Node, cm.Nodegroup}
 		}
 		ch <- prometheus.MustNewConstMetric(c.requestCPUCoresDesc, prometheus.GaugeValue, cm.RequestCPUCores, labelValues...)
 		ch <- prometheus.MustNewConstMetric(c.requestMemoryBytesDesc, prometheus.GaugeValue, cm.RequestMemoryBytes, labelValues...)
@@ -140,6 +154,7 @@ func (c *containerResourcesCollector) updateMetrics(ch chan<- prometheus.Metric)
 
 type enrichedContainerMetricses struct {
 	Node               string
+	Nodegroup          string
 	Pod                string
 	Labels             string
 	Container          string
@@ -157,7 +172,7 @@ type enrichedContainerMetricses struct {
 // buildEnrichedContainerMetricses merges the container metrics from two requests (podList request and podMetrics request) into
 // one, so that we can expose valuable metadata (such as a nodename) as prometheus labels which is just present
 // in one of the both responses.
-func buildEnrichedContainerMetricses(podList *corev1.PodList, podMetricses *v1beta1.PodMetricsList) []*enrichedContainerMetricses {
+func buildEnrichedContainerMetricses(podList *corev1.PodList, podMetricses *v1beta1.PodMetricsList, nodeList *corev1.NodeList) []*enrichedContainerMetricses {
 	// Group container metricses by pod name
 	containerMetricsesByPod := make(map[string]map[string]v1beta1.ContainerMetrics)
 	for _, pm := range podMetricses.Items {
@@ -173,6 +188,18 @@ func buildEnrichedContainerMetricses(podList *corev1.PodList, podMetricses *v1be
 		containers := append(podInfo.Spec.Containers, podInfo.Spec.InitContainers...)
 
 		for _, containerInfo := range containers {
+			var nodeGroup string
+			for _, nm := range nodeList.Items {
+				// log.Debug("node name 1: ", nm.ObjectMeta.Name)
+				// log.Debug("node name 2: ", podInfo.Spec.NodeName)
+				if nm.ObjectMeta.Name == podInfo.Spec.NodeName {
+					log.Debug("Match!")
+					// log.Debug("node name ", nm.ObjectMeta.Name)
+					// log.Debug("node labels ", nm.ObjectMeta.Labels["nodegroup-name"])
+					nodeGroup = nm.ObjectMeta.Labels["nodegroup-name"]
+					break // break here
+				}
+			}
 			qos := string(podInfo.Status.QOSClass)
 
 			// Labels map to string
@@ -199,6 +226,7 @@ func buildEnrichedContainerMetricses(podList *corev1.PodList, podMetricses *v1be
 			nodeName := podInfo.Spec.NodeName
 			metric := &enrichedContainerMetricses{
 				Node:               nodeName,
+				Nodegroup:          nodeGroup,
 				Container:          containerInfo.Name,
 				Pod:                podInfo.Name,
 				Labels:             labelString,
