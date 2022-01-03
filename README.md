@@ -7,8 +7,14 @@
 
 Kube eagle is a prometheus exporter which exports various metrics of kubernetes pod resource requests, limits and it's actual usages. It was created with the purpose to provide a better overview of your kubernetes cluster resources, so that you can optimize the resource allocation. You can easily build, or use our default grafana dashboard which will help you to achieve this goal:
 
-![Grafana Dashboard for Kubernetes resource monitoring](https://raw.githubusercontent.com/google-cloud-tools/kube-eagle/master/grafana-sample.png)
+![Grafana Dashboard for Kubernetes resource monitoring](https://raw.githubusercontent.com/liorfranko/kube-eagle/master/grafana-sample.png)
+## Forked
+This is a fork of https://github.com/cloudworkz/kube-eagle
 
+It has one additional feature of adding the `node-group` label to all metrics.
+This is useful for EKS deployments and allows filtering by node-groups.
+![Grafana Dashboard for Kubernetes resource monitoring](https://raw.githubusercontent.com/liorfranko/kube-eagle/master/grafana-sample-all.png)
+![Grafana Dashboard for Kubernetes resource monitoring](https://raw.githubusercontent.com/liorfranko/kube-eagle/master/grafana-sample-filtered.png)
 ## Setup
 
 Simply deploy a pod which runs kube-eagle inside the kubernetes cluster you would like to monitor. We recommend using our provided helm chart to deploy kube eagle in your cluster:
@@ -30,6 +36,7 @@ Make sure the pod has a service account attached that has the required permissio
 | METRICS_NAMESPACE | Prefix of exposed prometheus metrics | eagle |
 | IS_IN_CLUSTER | Whether to use in cluster communication or to look for a kubeconfig in home directory | true |
 | LOG_LEVEL | Logger's log granularity (debug, info, warn, error, fatal, panic) | info |
+| ENABLE_LABELS | Add pod's labels to  eagle_pod_container metrics | false |
 
 ### Configure Grafana dashboard
 
