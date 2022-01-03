@@ -11,5 +11,5 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o /go/
 FROM scratch
 COPY --from=builder /go/bin/kube-eagle /go/bin/kube-eagle
 
-ENV VERSION 1.1.4
+ENV VERSION 1.1.5
 ENTRYPOINT ["/go/bin/kube-eagle"]
